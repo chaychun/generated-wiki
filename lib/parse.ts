@@ -7,11 +7,13 @@ export type ParsedHead = {
 };
 
 export function parseFrontmatter(text: string): ParsedHead | null {
-  if (!text.startsWith("---")) return null;
-  const closeIdx = text.indexOf("\n---", 3);
+  const offset = findFrontmatterStart(text);
+  if (offset === -1) return null;
+  const inner = text.slice(offset);
+  const closeIdx = inner.indexOf("\n---", 3);
   if (closeIdx === -1) return null;
 
-  const yamlBlock = text.slice(3, closeIdx).trim();
+  const yamlBlock = inner.slice(3, closeIdx).trim();
   let parsed: unknown;
   try {
     parsed = yaml.load(yamlBlock);
@@ -24,12 +26,13 @@ export function parseFrontmatter(text: string): ParsedHead | null {
   if (type !== "article" && type !== "rejected") return null;
 
   let i = closeIdx + 4;
-  if (text[i] === "\n") i++;
+  if (inner[i] === "\n") i++;
+  const bodyStart = offset + i;
 
   if (type === "article") {
     return {
       fm: { type: "article", title: String(obj.title ?? "") },
-      bodyStart: i,
+      bodyStart,
     };
   }
   return {
@@ -40,8 +43,20 @@ export function parseFrontmatter(text: string): ParsedHead | null {
         ? (obj.suggestions as unknown[]).filter((s): s is string => typeof s === "string")
         : undefined,
     },
-    bodyStart: i,
+    bodyStart,
   };
+}
+
+function findFrontmatterStart(text: string): number {
+  const window = text.slice(0, 1000);
+  if (window.startsWith("---")) return 0;
+  const m = window.match(/(?:^|\n)---\r?\n/);
+  if (!m || m.index === undefined) return -1;
+  return m.index + (m[0].startsWith("\n") ? 1 : 0);
+}
+
+export function isErrorEnvelope(parsed: ParsedHead | null): boolean {
+  return !!parsed && parsed.fm.type === "rejected" && parsed.fm.reason === "error";
 }
 
 export type Segment = { type: "text"; text: string } | { type: "link"; target: string };

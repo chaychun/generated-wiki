@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { getCached, putCached } from "@/lib/cache";
-import { parseFrontmatter, slugToDisplay, tokenizeBody, type ParsedHead } from "@/lib/parse";
+import {
+  isErrorEnvelope,
+  parseFrontmatter,
+  slugToDisplay,
+  tokenizeBody,
+  type ParsedHead,
+} from "@/lib/parse";
 import { loadPersona, personaCacheKey } from "@/lib/persona";
 import { clearReferrer, getReferrer, pushTrail, setReferrer } from "@/lib/trail";
 import { HOME_SLUG, type Frontmatter } from "@/lib/types";
@@ -32,7 +38,7 @@ export function Article({ slug }: { slug: string }) {
 
       const cached = await getCached(slug, pkey);
       if (cancelled) return;
-      if (cached) {
+      if (cached && !isErrorEnvelope(parseFrontmatter(cached))) {
         setText(cached);
         setDone(true);
         rememberAsReferrer(slug, cached);
@@ -71,7 +77,9 @@ export function Article({ slug }: { slug: string }) {
         }
         if (cancelled) return;
         setDone(true);
-        await putCached(slug, pkey, acc);
+        if (!isErrorEnvelope(parseFrontmatter(acc))) {
+          await putCached(slug, pkey, acc);
+        }
         rememberAsReferrer(slug, acc);
       } catch (e) {
         if (!cancelled) {
@@ -87,8 +95,10 @@ export function Article({ slug }: { slug: string }) {
     };
   }, [slug]);
 
-  const head = parseFrontmatter(text);
-  const body = head ? text.slice(head.bodyStart) : "";
+  const parsed = parseFrontmatter(text);
+  const head: ParsedHead | null =
+    parsed ?? (done && text.trim() ? synthesizeArticleHead(slug) : null);
+  const body = parsed ? text.slice(parsed.bodyStart) : head ? text : "";
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-8 font-serif">
@@ -113,6 +123,11 @@ export function Article({ slug }: { slug: string }) {
       {head?.fm.type === "rejected" && <RejectedView fm={head.fm} body={body} streaming={!done} />}
     </main>
   );
+}
+
+function synthesizeArticleHead(slug: string): ParsedHead {
+  const title = slug === HOME_SLUG ? "generated.wiki" : slugToDisplay(slug);
+  return { fm: { type: "article", title }, bodyStart: 0 };
 }
 
 function rememberAsReferrer(slug: string, full: string) {

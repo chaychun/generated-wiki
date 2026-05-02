@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { SYSTEM_PROMPT, buildUserMessage } from "@/lib/prompts";
 import type { Persona, Referrer } from "@/lib/types";
 import { HOME_SLUG } from "@/lib/types";
@@ -6,9 +7,40 @@ import { HOME_SLUG } from "@/lib/types";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6";
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6";
+const OPENROUTER_MODEL =
+  process.env.OPENROUTER_MODEL ?? "anthropic/claude-sonnet-4.6";
 const MAX_REFERRER_CHARS = 2000;
 const MAX_FREEFORM_CHARS = 500;
+const MAX_TOKENS = 800;
+
+type Provider = "anthropic" | "openrouter";
+
+function pickProvider():
+  | { provider: Provider; apiKey: string }
+  | { error: string } {
+  const override = process.env.LLM_PROVIDER?.toLowerCase();
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  const orKey = process.env.OPENROUTER_API_KEY;
+
+  if (override === "openrouter") {
+    if (!orKey)
+      return {
+        error: "LLM_PROVIDER=openrouter but OPENROUTER_API_KEY missing",
+      };
+    return { provider: "openrouter", apiKey: orKey };
+  }
+  if (override === "anthropic") {
+    if (!anthropicKey)
+      return { error: "LLM_PROVIDER=anthropic but ANTHROPIC_API_KEY missing" };
+    return { provider: "anthropic", apiKey: anthropicKey };
+  }
+  if (anthropicKey) return { provider: "anthropic", apiKey: anthropicKey };
+  if (orKey) return { provider: "openrouter", apiKey: orKey };
+  return {
+    error: "no LLM key configured (ANTHROPIC_API_KEY or OPENROUTER_API_KEY)",
+  };
+}
 
 type GenerateBody = {
   slug?: unknown;
@@ -28,14 +60,27 @@ function sanitizePersona(raw: unknown): Persona {
   if (!raw || typeof raw !== "object") return def;
   const o = raw as Record<string, unknown>;
   const level =
-    o.level === "kid" || o.level === "expert" || o.level === "general" ? o.level : "general";
-  const chaosCandidates = ["off", "shakespeare", "caveman", "linkedin", "custom"] as const;
-  const chaos = (chaosCandidates as readonly string[]).includes(o.chaos as string)
+    o.level === "kid" || o.level === "expert" || o.level === "general"
+      ? o.level
+      : "general";
+  const chaosCandidates = [
+    "off",
+    "shakespeare",
+    "caveman",
+    "linkedin",
+    "custom",
+  ] as const;
+  const chaos = (chaosCandidates as readonly string[]).includes(
+    o.chaos as string,
+  )
     ? (o.chaos as Persona["chaos"])
     : "off";
   const freeform =
-    typeof o.freeform === "string" ? o.freeform.slice(0, MAX_FREEFORM_CHARS) : undefined;
-  const chaosCustom = typeof o.chaosCustom === "string" ? o.chaosCustom.slice(0, 200) : undefined;
+    typeof o.freeform === "string"
+      ? o.freeform.slice(0, MAX_FREEFORM_CHARS)
+      : undefined;
+  const chaosCustom =
+    typeof o.chaosCustom === "string" ? o.chaosCustom.slice(0, 200) : undefined;
   return { level, chaos, freeform, chaosCustom };
 }
 
@@ -49,10 +94,65 @@ function sanitizeReferrer(raw: unknown): Referrer | null {
   return { slug, body };
 }
 
+async function* streamFromAnthropic(apiKey: string, userMessage: string) {
+  const client = new Anthropic({ apiKey });
+  const response = await client.messages.create({
+    model: ANTHROPIC_MODEL,
+    max_tokens: MAX_TOKENS,
+    system: [
+      {
+        type: "text",
+        text: SYSTEM_PROMPT,
+        cache_control: { type: "ephemeral" },
+      },
+    ],
+    messages: [{ role: "user", content: userMessage }],
+    stream: true,
+  });
+  for await (const event of response) {
+    if (
+      event.type === "content_block_delta" &&
+      event.delta.type === "text_delta"
+    ) {
+      yield event.delta.text;
+    }
+  }
+}
+
+async function* streamFromOpenRouter(apiKey: string, userMessage: string) {
+  const defaultHeaders: Record<string, string> = {};
+  if (process.env.OR_REFERER)
+    defaultHeaders["HTTP-Referer"] = process.env.OR_REFERER;
+  if (process.env.OR_TITLE) defaultHeaders["X-Title"] = process.env.OR_TITLE;
+
+  const client = new OpenAI({
+    apiKey,
+    baseURL: "https://openrouter.ai/api/v1",
+    defaultHeaders,
+  });
+  const response = await client.chat.completions.create({
+    model: OPENROUTER_MODEL,
+    max_tokens: MAX_TOKENS,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: userMessage },
+    ],
+    stream: true,
+    ...({ reasoning: { enabled: false, exclude: true } } as Record<
+      string,
+      unknown
+    >),
+  });
+  for await (const chunk of response) {
+    const text = chunk.choices[0]?.delta?.content;
+    if (text) yield text;
+  }
+}
+
 export async function POST(req: Request) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return new Response("ANTHROPIC_API_KEY not configured", { status: 500 });
+  const picked = pickProvider();
+  if ("error" in picked) {
+    return new Response(picked.error, { status: 500 });
   }
 
   let body: GenerateBody;
@@ -69,30 +169,24 @@ export async function POST(req: Request) {
   const referrer = sanitizeReferrer(body.referrer);
   const userMessage = buildUserMessage(slug, persona, referrer);
 
-  const client = new Anthropic({ apiKey });
-
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      const debug = process.env.LLM_DEBUG === "1";
+      const buf: string[] = [];
       try {
-        const response = await client.messages.create({
-          model: MODEL,
-          max_tokens: 800,
-          system: [
-            {
-              type: "text",
-              text: SYSTEM_PROMPT,
-              cache_control: { type: "ephemeral" },
-            },
-          ],
-          messages: [{ role: "user", content: userMessage }],
-          stream: true,
-        });
-
-        for await (const event of response) {
-          if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-            controller.enqueue(encoder.encode(event.delta.text));
-          }
+        const iter =
+          picked.provider === "anthropic"
+            ? streamFromAnthropic(picked.apiKey, userMessage)
+            : streamFromOpenRouter(picked.apiKey, userMessage);
+        for await (const text of iter) {
+          if (debug) buf.push(text);
+          controller.enqueue(encoder.encode(text));
+        }
+        if (debug) {
+          console.log(
+            `[gen ${picked.provider}/${slug}] ${buf.join("").slice(0, 2000)}`,
+          );
         }
         controller.close();
       } catch (err) {
