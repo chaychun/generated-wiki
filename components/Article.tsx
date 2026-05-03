@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getCached, putCached } from "@/lib/cache";
 import {
   isErrorEnvelope,
@@ -20,17 +20,15 @@ export function Article({ slug }: { slug: string }) {
   const [text, setText] = useState("");
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const slugRef = useRef(slug);
 
   useEffect(() => {
-    slugRef.current = slug;
     let cancelled = false;
     let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
 
     setText("");
     setDone(false);
     setError(null);
-    pushTrail(slug);
+    if (slug !== HOME_SLUG) pushTrail(slug);
 
     (async () => {
       const persona = loadPersona();
@@ -95,9 +93,9 @@ export function Article({ slug }: { slug: string }) {
     };
   }, [slug]);
 
-  const parsed = parseFrontmatter(text);
-  const head: ParsedHead | null =
-    parsed ?? (done && text.trim() ? synthesizeArticleHead() : null);
+  const parsed = useMemo(() => parseFrontmatter(text), [text]);
+  const synthesized = !parsed && done && text.trim().length > 0;
+  const head: ParsedHead | null = parsed ?? (synthesized ? synthesizeArticleHead() : null);
   const body = parsed ? text.slice(parsed.bodyStart) : head ? text : "";
   const headTitle = slugToTitle(slug);
   const isHome = slug === HOME_SLUG;
@@ -119,6 +117,12 @@ export function Article({ slug }: { slug: string }) {
 
       {!head && !done && <SkeletonTitle slug={slug} />}
       {!head && done && !error && <p className="text-zinc-500">No content.</p>}
+
+      {synthesized && (
+        <p className="mt-4 rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">
+          couldn&apos;t parse output — showing raw stream
+        </p>
+      )}
 
       {head?.fm.type === "article" && (
         <ArticleView title={headTitle} isHome={isHome} body={body} streaming={!done} />
@@ -231,13 +235,25 @@ function RejectedView({
 }
 
 function RenderedBody({ body, streaming }: { body: string; streaming: boolean }) {
-  const trimmed = body.replace(/\s+$/, "");
-  const paragraphs = trimmed.split(/\n{2,}/).filter(Boolean);
+  const paragraphs = useMemo(() => {
+    let safe = body;
+    if (streaming) {
+      const lastOpen = safe.lastIndexOf("[[");
+      const lastClose = safe.lastIndexOf("]]");
+      if (lastOpen > lastClose) safe = safe.slice(0, lastOpen);
+    }
+    const trimmed = safe.replace(/\s+$/, "");
+    return trimmed
+      .split(/\n{2,}/)
+      .filter(Boolean)
+      .map((para) => tokenizeBody(para));
+  }, [body, streaming]);
+
   return (
     <>
-      {paragraphs.map((para, i) => (
+      {paragraphs.map((segs, i) => (
         <p key={i}>
-          {tokenizeBody(para).map((seg, j) =>
+          {segs.map((seg, j) =>
             seg.type === "text" ? (
               <span key={j}>{seg.text}</span>
             ) : (
