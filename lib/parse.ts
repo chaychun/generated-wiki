@@ -1,4 +1,5 @@
 import yaml from "js-yaml";
+import { normalizeSlug } from "./slug";
 import type { Frontmatter } from "./types";
 
 export type ParsedHead = {
@@ -80,12 +81,7 @@ export function tokenizeBody(body: string): Segment[] {
 }
 
 export function targetToSlug(target: string): string {
-  return target
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "_")
-    .replace(/[^a-z0-9_-]/g, "")
-    .slice(0, 100);
+  return normalizeSlug(target);
 }
 
 export function slugToDisplay(slug: string): string {

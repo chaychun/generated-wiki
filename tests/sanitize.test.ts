@@ -18,9 +18,15 @@ describe("sanitizeSlug", () => {
     expect(sanitizeSlug(HOME_SLUG)).toBe(HOME_SLUG);
   });
 
-  test("lowercases and strips disallowed", () => {
-    expect(sanitizeSlug("Hello World!")).toBe("helloworld");
+  test("lowercases, spaces→_, strips disallowed", () => {
+    expect(sanitizeSlug("Hello World!")).toBe("hello_world");
     expect(sanitizeSlug("foo-bar_baz")).toBe("foo-bar_baz");
+  });
+
+  test("matches targetToSlug for same input", async () => {
+    const { targetToSlug } = await import("@/lib/parse");
+    expect(sanitizeSlug("Hello World")).toBe(targetToSlug("Hello World"));
+    expect(sanitizeSlug("UTF-8 Encoding 2")).toBe(targetToSlug("UTF-8 Encoding 2"));
   });
 
   test("trims and caps at 100 chars", () => {
