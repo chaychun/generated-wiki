@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { DEFAULT_PERSONA, loadPersona, personaLabel, savePersona } from "@/lib/persona";
+import { PERSONA_CHANGE_EVENT } from "@/lib/personaEvents";
 import type { ChaosMode, Persona, ReadingLevel } from "@/lib/types";
 
 const CHAOS_OPTIONS: { value: ChaosMode; label: string }[] = [
@@ -44,7 +45,7 @@ export function Settings() {
     savePersona(draft);
     setPersona(draft);
     setOpen(false);
-    location.reload();
+    window.dispatchEvent(new CustomEvent(PERSONA_CHANGE_EVENT));
   }
 
   function cancel() {
@@ -59,14 +60,7 @@ export function Settings() {
         {persona.chaos !== "off" && (
           <>
             {" "}
-            · chaos:{" "}
-            <span className="font-semibold">
-              {persona.chaos === "custom"
-                ? `custom (${(persona.chaosCustom ?? "").slice(0, 24)}${
-                    (persona.chaosCustom ?? "").length > 24 ? "…" : ""
-                  })`
-                : persona.chaos}
-            </span>
+            · chaos: <span className="font-semibold">{renderChaosLabel(persona)}</span>
           </>
         )}
       </p>
@@ -77,7 +71,7 @@ export function Settings() {
       {open && (
         <div
           ref={popoverRef}
-          className="absolute right-0 top-8 z-20 w-80 rounded border border-[var(--rule)] bg-[var(--paper)] p-4 shadow-lg"
+          className="absolute right-0 top-8 z-20 w-80 max-w-[calc(100vw-2rem)] rounded border border-[var(--rule)] bg-[var(--paper)] p-4 shadow-lg"
         >
           <label className="block text-xs font-semibold uppercase tracking-wide text-zinc-600">
             Reading level
@@ -150,4 +144,10 @@ export function Settings() {
       )}
     </div>
   );
+}
+
+function renderChaosLabel(persona: Persona): string {
+  if (persona.chaos !== "custom") return persona.chaos;
+  const c = persona.chaosCustom ?? "";
+  return `custom (${c.slice(0, 24)}${c.length > 24 ? "…" : ""})`;
 }
