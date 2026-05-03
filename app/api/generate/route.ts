@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6";
 const OPENROUTER_MODEL =
-  process.env.OPENROUTER_MODEL ?? "anthropic/claude-sonnet-4.6";
+  process.env.OPENROUTER_MODEL ?? "google/gemini-3-flash-preview";
 const MAX_REFERRER_CHARS = 2000;
 const MAX_FREEFORM_CHARS = 500;
 const MAX_TOKENS = 800;
@@ -119,6 +119,13 @@ async function* streamFromAnthropic(apiKey: string, userMessage: string) {
   }
 }
 
+type CachedTextPart = OpenAI.Chat.ChatCompletionContentPartText & {
+  cache_control?: { type: "ephemeral" };
+};
+type OpenRouterExtras = {
+  reasoning?: { enabled: boolean; exclude: boolean };
+};
+
 async function* streamFromOpenRouter(apiKey: string, userMessage: string) {
   const defaultHeaders: Record<string, string> = {};
   if (process.env.OR_REFERER)
@@ -130,19 +137,25 @@ async function* streamFromOpenRouter(apiKey: string, userMessage: string) {
     baseURL: "https://openrouter.ai/api/v1",
     defaultHeaders,
   });
-  const response = await client.chat.completions.create({
+  const systemContent: CachedTextPart[] = [
+    {
+      type: "text",
+      text: SYSTEM_PROMPT,
+      cache_control: { type: "ephemeral" },
+    },
+  ];
+  const body: OpenAI.Chat.ChatCompletionCreateParamsStreaming &
+    OpenRouterExtras = {
     model: OPENROUTER_MODEL,
     max_tokens: MAX_TOKENS,
     messages: [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: systemContent },
       { role: "user", content: userMessage },
     ],
     stream: true,
-    ...({ reasoning: { enabled: false, exclude: true } } as Record<
-      string,
-      unknown
-    >),
-  });
+    reasoning: { enabled: false, exclude: true },
+  };
+  const response = await client.chat.completions.create(body);
   for await (const chunk of response) {
     const text = chunk.choices[0]?.delta?.content;
     if (text) yield text;
@@ -173,17 +186,17 @@ export async function POST(req: Request) {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const debug = process.env.LLM_DEBUG === "1";
-      const buf: string[] = [];
+      const buf: string[] | null = debug ? [] : null;
       try {
         const iter =
           picked.provider === "anthropic"
             ? streamFromAnthropic(picked.apiKey, userMessage)
             : streamFromOpenRouter(picked.apiKey, userMessage);
         for await (const text of iter) {
-          if (debug) buf.push(text);
+          buf?.push(text);
           controller.enqueue(encoder.encode(text));
         }
-        if (debug) {
+        if (buf) {
           console.log(
             `[gen ${picked.provider}/${slug}] ${buf.join("").slice(0, 2000)}`,
           );
