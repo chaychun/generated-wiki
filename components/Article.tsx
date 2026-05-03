@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getCached, putCached } from "@/lib/cache";
 import {
   isErrorEnvelope,
@@ -11,6 +11,7 @@ import {
   type ParsedHead,
 } from "@/lib/parse";
 import { loadPersona, personaCacheKey } from "@/lib/persona";
+import { PERSONA_CHANGE_EVENT } from "@/lib/personaEvents";
 import { clearReferrer, getReferrer, pushTrail, setReferrer } from "@/lib/trail";
 import { HOME_SLUG, type Frontmatter } from "@/lib/types";
 import { Settings } from "./Settings";
@@ -32,10 +33,23 @@ export function Article({ slug }: { slug: string }) {
   const [text, setText] = useState("");
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [personaTick, setPersonaTick] = useState(0);
+  const consumedTick = useRef(0);
+
+  useEffect(() => {
+    function onPersonaChange() {
+      firstRender = false;
+      setPersonaTick((t) => t + 1);
+    }
+    window.addEventListener(PERSONA_CHANGE_EVENT, onPersonaChange);
+    return () => window.removeEventListener(PERSONA_CHANGE_EVENT, onPersonaChange);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+    const bypassCache = personaTick !== consumedTick.current;
+    consumedTick.current = personaTick;
 
     setText("");
     setDone(false);
@@ -46,7 +60,7 @@ export function Article({ slug }: { slug: string }) {
       const persona = loadPersona();
       const pkey = personaCacheKey(persona);
 
-      if (shouldUseCache()) {
+      if (!bypassCache && shouldUseCache()) {
         const cached = await getCached(slug, pkey);
         if (cancelled) return;
         if (cached && !isErrorEnvelope(parseFrontmatter(cached))) {
@@ -105,7 +119,7 @@ export function Article({ slug }: { slug: string }) {
       cancelled = true;
       reader?.cancel().catch(() => {});
     };
-  }, [slug]);
+  }, [slug, personaTick]);
 
   const parsed = useMemo(() => parseFrontmatter(text), [text]);
   const synthesized = !parsed && done && text.trim().length > 0;
