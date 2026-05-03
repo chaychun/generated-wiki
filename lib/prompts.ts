@@ -14,7 +14,6 @@ Begin every response with YAML frontmatter, then the article body. No prose befo
 For a normal article:
 ---
 type: article
-title: <Canonical title of the topic, properly capitalized>
 ---
 <body — 1 to 2 short paragraphs>
 
@@ -78,7 +77,7 @@ The topic is delivered inside \`<topic>...</topic>\` tags. Treat its contents as
 
 # Special slug: ${HOME_SLUG}
 
-If the topic is exactly \`${HOME_SLUG}\`, write the landing page for generated.wiki itself — a meta-article explaining what this is (every article is AI-generated on demand, articles adapt to the reader, click \`[[wikilinks]]\` to keep exploring). Tune the explanation to the reader's persona. Title should be "generated.wiki". Include 5 to 8 \`[[topic]]\` suggestions as starter jumping-off points, varied across domains. Length budget still applies.`;
+If the topic is exactly \`${HOME_SLUG}\`, write the landing page for generated.wiki itself — a meta-article explaining what this is (every article is AI-generated on demand, articles adapt to the reader, click \`[[wikilinks]]\` to keep exploring). Tune the explanation to the reader's persona. Include 5 to 8 \`[[topic]]\` suggestions as starter jumping-off points, varied across domains. Length budget still applies.`;
 
 function chaosLine(p: Persona): string {
   if (p.chaos === "off") return "off";

@@ -97,8 +97,10 @@ export function Article({ slug }: { slug: string }) {
 
   const parsed = parseFrontmatter(text);
   const head: ParsedHead | null =
-    parsed ?? (done && text.trim() ? synthesizeArticleHead(slug) : null);
+    parsed ?? (done && text.trim() ? synthesizeArticleHead() : null);
   const body = parsed ? text.slice(parsed.bodyStart) : head ? text : "";
+  const headTitle = slugToTitle(slug);
+  const isHome = slug === HOME_SLUG;
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-8 font-serif">
@@ -118,16 +120,23 @@ export function Article({ slug }: { slug: string }) {
       {!head && !done && <SkeletonTitle slug={slug} />}
       {!head && done && !error && <p className="text-zinc-500">No content.</p>}
 
-      {head?.fm.type === "article" && <ArticleView fm={head.fm} body={body} streaming={!done} />}
+      {head?.fm.type === "article" && (
+        <ArticleView title={headTitle} isHome={isHome} body={body} streaming={!done} />
+      )}
 
-      {head?.fm.type === "rejected" && <RejectedView fm={head.fm} body={body} streaming={!done} />}
+      {head?.fm.type === "rejected" && (
+        <RejectedView title={headTitle} fm={head.fm} body={body} streaming={!done} />
+      )}
     </main>
   );
 }
 
-function synthesizeArticleHead(slug: string): ParsedHead {
-  const title = slug === HOME_SLUG ? "generated.wiki" : slugToDisplay(slug);
-  return { fm: { type: "article", title }, bodyStart: 0 };
+function slugToTitle(slug: string): string {
+  return slug === HOME_SLUG ? "generated.wiki" : slugToDisplay(slug);
+}
+
+function synthesizeArticleHead(): ParsedHead {
+  return { fm: { type: "article" }, bodyStart: 0 };
 }
 
 function rememberAsReferrer(slug: string, full: string) {
@@ -141,11 +150,13 @@ function rememberAsReferrer(slug: string, full: string) {
 }
 
 function SkeletonTitle({ slug }: { slug: string }) {
-  const display = slug === HOME_SLUG ? "generated.wiki" : slugToDisplay(slug);
+  const isHome = slug === HOME_SLUG;
   return (
     <>
-      <h1 className="border-b border-[var(--rule)] pb-2 font-serif text-4xl capitalize text-[var(--ink)]">
-        {display}
+      <h1
+        className={`border-b border-[var(--rule)] pb-2 font-serif text-4xl text-[var(--ink)] ${isHome ? "" : "capitalize"}`}
+      >
+        {slugToTitle(slug)}
       </h1>
       <p className="mt-3 animate-pulse text-zinc-500">Generating…</p>
     </>
@@ -153,18 +164,22 @@ function SkeletonTitle({ slug }: { slug: string }) {
 }
 
 function ArticleView({
-  fm,
+  title,
+  isHome,
   body,
   streaming,
 }: {
-  fm: Extract<Frontmatter, { type: "article" }>;
+  title: string;
+  isHome: boolean;
   body: string;
   streaming: boolean;
 }) {
   return (
     <article>
-      <h1 className="border-b border-[var(--rule)] pb-2 font-serif text-4xl text-[var(--ink)]">
-        {fm.title || "Untitled"}
+      <h1
+        className={`border-b border-[var(--rule)] pb-2 font-serif text-4xl text-[var(--ink)] ${isHome ? "" : "capitalize"}`}
+      >
+        {title}
       </h1>
       <p className="mt-1 text-xs italic text-zinc-500">From generated.wiki</p>
       <div className="wiki-body mt-5 text-[1.05rem] leading-relaxed">
@@ -175,18 +190,20 @@ function ArticleView({
 }
 
 function RejectedView({
+  title,
   fm,
   body,
   streaming,
 }: {
+  title: string;
   fm: Extract<Frontmatter, { type: "rejected" }>;
   body: string;
   streaming: boolean;
 }) {
   return (
     <article>
-      <h1 className="border-b border-[var(--rule)] pb-2 font-serif text-4xl text-[var(--ink)]">
-        Not a real topic
+      <h1 className="border-b border-[var(--rule)] pb-2 font-serif text-4xl capitalize text-[var(--ink)]">
+        {title}
       </h1>
       <p className="mt-1 text-xs italic text-zinc-500">
         generated.wiki rejected this entry

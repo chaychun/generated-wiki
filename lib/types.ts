@@ -16,7 +16,6 @@ export type Referrer = {
 
 export type ArticleFrontmatter = {
   type: "article";
-  title: string;
 };
 
 export type RejectedFrontmatter = {

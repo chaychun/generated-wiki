@@ -8,11 +8,18 @@ import {
 
 describe("parseFrontmatter", () => {
   test("valid article", () => {
-    const text = `---\ntype: article\ntitle: Hello World\n---\nbody here`;
+    const text = `---\ntype: article\n---\nbody here`;
     const r = parseFrontmatter(text);
     expect(r).not.toBeNull();
-    expect(r!.fm).toEqual({ type: "article", title: "Hello World" });
+    expect(r!.fm).toEqual({ type: "article" });
     expect(text.slice(r!.bodyStart)).toBe("body here");
+  });
+
+  test("ignores extra title field on article", () => {
+    const text = `---\ntype: article\ntitle: Whatever\n---\nbody`;
+    const r = parseFrontmatter(text);
+    expect(r).not.toBeNull();
+    expect(r!.fm).toEqual({ type: "article" });
   });
 
   test("valid rejected with reason and suggestions", () => {
@@ -27,17 +34,17 @@ describe("parseFrontmatter", () => {
   });
 
   test("missing closing ---", () => {
-    const text = `---\ntype: article\ntitle: oops\n`;
+    const text = `---\ntype: article\n`;
     expect(parseFrontmatter(text)).toBeNull();
   });
 
   test("malformed YAML", () => {
-    const text = `---\ntype: article\ntitle: "unterminated\n---\nbody`;
+    const text = `---\ntype: "unterminated\n---\nbody`;
     expect(parseFrontmatter(text)).toBeNull();
   });
 
   test("type !== article|rejected", () => {
-    const text = `---\ntype: bogus\ntitle: x\n---\nbody`;
+    const text = `---\ntype: bogus\n---\nbody`;
     expect(parseFrontmatter(text)).toBeNull();
   });
 
