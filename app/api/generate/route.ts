@@ -1,8 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { SYSTEM_PROMPT, buildUserMessage } from "@/lib/prompts";
+import { normalizeSlug } from "@/lib/slug";
 import type { Persona, Referrer } from "@/lib/types";
-import { HOME_SLUG } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,10 +49,11 @@ type GenerateBody = {
 };
 
 export function sanitizeSlug(raw: unknown): string {
-  if (typeof raw !== "string") return "";
-  const trimmed = raw.trim().slice(0, 100);
-  if (trimmed === HOME_SLUG) return trimmed;
-  return trimmed.toLowerCase().replace(/[^a-z0-9_-]/g, "");
+  return normalizeSlug(raw);
+}
+
+function escapeStreamMessage(message: string): string {
+  return message.replace(/\r?\n/g, " ").replace(/-{3,}/g, "—").slice(0, 500);
 }
 
 export function sanitizePersona(raw: unknown): Persona {
@@ -203,7 +204,8 @@ export async function POST(req: Request) {
         }
         controller.close();
       } catch (err) {
-        const message = err instanceof Error ? err.message : "unknown error";
+        const raw = err instanceof Error ? err.message : "unknown error";
+        const message = escapeStreamMessage(raw);
         controller.enqueue(
           encoder.encode(
             `---\ntype: rejected\nreason: error\nsuggestions: []\n---\nGeneration failed: ${message}`,
