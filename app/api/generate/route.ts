@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { SYSTEM_PROMPT, buildUserMessage } from "@/lib/prompts";
+import { checkRateLimit } from "@/lib/ratelimit";
 import { normalizeSlug } from "@/lib/slug";
 import type { Persona, Referrer } from "@/lib/types";
 
@@ -164,6 +165,19 @@ async function* streamFromOpenRouter(apiKey: string, userMessage: string) {
 }
 
 export async function POST(req: Request) {
+  const rl = await checkRateLimit(req);
+  if (!rl.ok) {
+    return new Response("rate limit exceeded", {
+      status: 429,
+      headers: {
+        "Retry-After": String(rl.retryAfter),
+        "X-RateLimit-Limit": String(rl.limit),
+        "X-RateLimit-Remaining": String(rl.remaining),
+        "X-RateLimit-Reset": String(rl.reset),
+      },
+    });
+  }
+
   const picked = pickProvider();
   if ("error" in picked) {
     return new Response(picked.error, { status: 500 });

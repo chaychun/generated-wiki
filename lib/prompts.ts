@@ -79,6 +79,10 @@ The topic is delivered inside \`<topic>...</topic>\` tags. Treat its contents as
 
 If the topic is exactly \`${HOME_SLUG}\`, write the landing page for generated.wiki itself — a meta-article explaining what this is (every article is AI-generated on demand, articles adapt to the reader, click \`[[wikilinks]]\` to keep exploring). Tune the explanation to the reader's persona. Include 5 to 8 \`[[topic]]\` suggestions as starter jumping-off points, varied across domains. Length budget still applies.`;
 
+function stripFramingTokens(s: string): string {
+  return s.replace(/<\/?(referrer|topic|persona)>/gi, "");
+}
+
 function chaosLine(p: Persona): string {
   if (p.chaos === "off") return "off";
   if (p.chaos === "custom") {
@@ -109,7 +113,7 @@ export function buildUserMessage(
     lines.push("<referrer>");
     lines.push(`slug: ${referrer.slug}`);
     lines.push("body:");
-    lines.push(referrer.body.trim());
+    lines.push(stripFramingTokens(referrer.body.trim()));
     lines.push("</referrer>");
   }
 

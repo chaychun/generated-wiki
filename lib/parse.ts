@@ -17,7 +17,7 @@ export function parseFrontmatter(text: string): ParsedHead | null {
   const yamlBlock = inner.slice(3, closeIdx).trim();
   let parsed: unknown;
   try {
-    parsed = yaml.load(yamlBlock);
+    parsed = yaml.load(yamlBlock, { schema: yaml.FAILSAFE_SCHEMA });
   } catch {
     return null;
   }
