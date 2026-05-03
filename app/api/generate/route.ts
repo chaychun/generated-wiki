@@ -119,6 +119,9 @@ async function* streamFromAnthropic(apiKey: string, userMessage: string) {
   }
 }
 
+type CachedTextPart = OpenAI.Chat.ChatCompletionContentPartText & {
+  cache_control?: { type: "ephemeral" };
+};
 type OpenRouterExtras = {
   reasoning?: { enabled: boolean; exclude: boolean };
 };
@@ -134,12 +137,19 @@ async function* streamFromOpenRouter(apiKey: string, userMessage: string) {
     baseURL: "https://openrouter.ai/api/v1",
     defaultHeaders,
   });
+  const systemContent: CachedTextPart[] = [
+    {
+      type: "text",
+      text: SYSTEM_PROMPT,
+      cache_control: { type: "ephemeral" },
+    },
+  ];
   const body: OpenAI.Chat.ChatCompletionCreateParamsStreaming &
     OpenRouterExtras = {
     model: OPENROUTER_MODEL,
     max_tokens: MAX_TOKENS,
     messages: [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: systemContent },
       { role: "user", content: userMessage },
     ],
     stream: true,
