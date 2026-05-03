@@ -32,7 +32,7 @@ export function parseFrontmatter(text: string): ParsedHead | null {
 
   if (type === "article") {
     return {
-      fm: { type: "article", title: String(obj.title ?? "") },
+      fm: { type: "article" },
       bodyStart,
     };
   }

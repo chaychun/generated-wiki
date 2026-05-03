@@ -78,10 +78,11 @@ Every generation starts with YAML frontmatter, then content:
 ```
 ---
 type: article
-title: Octopus
 ---
 The octopus is a soft-bodied [[cephalopod]]...
 ```
+
+Title is derived client-side from the slug (`slugToDisplay`), not emitted by the model — single source of truth, no drift between clicked link and rendered H1.
 
 ```
 ---
