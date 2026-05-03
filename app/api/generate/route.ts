@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6";
 const OPENROUTER_MODEL =
-  process.env.OPENROUTER_MODEL ?? "anthropic/claude-sonnet-4.6";
+  process.env.OPENROUTER_MODEL ?? "google/gemini-3-flash-preview";
 const MAX_REFERRER_CHARS = 2000;
 const MAX_FREEFORM_CHARS = 500;
 const MAX_TOKENS = 800;
@@ -119,9 +119,6 @@ async function* streamFromAnthropic(apiKey: string, userMessage: string) {
   }
 }
 
-type CachedTextPart = OpenAI.Chat.ChatCompletionContentPartText & {
-  cache_control?: { type: "ephemeral" };
-};
 type OpenRouterExtras = {
   reasoning?: { enabled: boolean; exclude: boolean };
 };
@@ -137,19 +134,12 @@ async function* streamFromOpenRouter(apiKey: string, userMessage: string) {
     baseURL: "https://openrouter.ai/api/v1",
     defaultHeaders,
   });
-  const systemContent: CachedTextPart[] = [
-    {
-      type: "text",
-      text: SYSTEM_PROMPT,
-      cache_control: { type: "ephemeral" },
-    },
-  ];
   const body: OpenAI.Chat.ChatCompletionCreateParamsStreaming &
     OpenRouterExtras = {
     model: OPENROUTER_MODEL,
     max_tokens: MAX_TOKENS,
     messages: [
-      { role: "system", content: systemContent },
+      { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: userMessage },
     ],
     stream: true,
