@@ -1,3 +1,4 @@
+import { safeLocal } from "./storage";
 import type { Persona } from "./types";
 
 const KEY = "gw:persona:v1";
@@ -8,24 +9,13 @@ export const DEFAULT_PERSONA: Persona = {
 };
 
 export function loadPersona(): Persona {
-  if (typeof window === "undefined") return DEFAULT_PERSONA;
-  try {
-    const raw = window.localStorage.getItem(KEY);
-    if (!raw) return DEFAULT_PERSONA;
-    const parsed = JSON.parse(raw) as Partial<Persona>;
-    return { ...DEFAULT_PERSONA, ...parsed };
-  } catch {
-    return DEFAULT_PERSONA;
-  }
+  const parsed = safeLocal.get<Partial<Persona>>(KEY);
+  if (!parsed) return DEFAULT_PERSONA;
+  return { ...DEFAULT_PERSONA, ...parsed };
 }
 
 export function savePersona(p: Persona): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(KEY, JSON.stringify(p));
-  } catch {
-    // ignore
-  }
+  safeLocal.set(KEY, p);
 }
 
 export function personaCacheKey(p: Persona): string {
