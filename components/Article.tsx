@@ -16,6 +16,18 @@ import { HOME_SLUG, type Frontmatter } from "@/lib/types";
 import { Settings } from "./Settings";
 import { WikiLink } from "./WikiLink";
 
+let firstRender = true;
+
+function shouldUseCache(): boolean {
+  if (!firstRender) return true;
+  firstRender = false;
+  if (typeof performance === "undefined") return false;
+  const entry = performance.getEntriesByType("navigation")[0] as
+    | PerformanceNavigationTiming
+    | undefined;
+  return entry?.type === "back_forward";
+}
+
 export function Article({ slug }: { slug: string }) {
   const [text, setText] = useState("");
   const [done, setDone] = useState(false);
@@ -34,13 +46,15 @@ export function Article({ slug }: { slug: string }) {
       const persona = loadPersona();
       const pkey = personaCacheKey(persona);
 
-      const cached = await getCached(slug, pkey);
-      if (cancelled) return;
-      if (cached && !isErrorEnvelope(parseFrontmatter(cached))) {
-        setText(cached);
-        setDone(true);
-        rememberAsReferrer(slug, cached);
-        return;
+      if (shouldUseCache()) {
+        const cached = await getCached(slug, pkey);
+        if (cancelled) return;
+        if (cached && !isErrorEnvelope(parseFrontmatter(cached))) {
+          setText(cached);
+          setDone(true);
+          rememberAsReferrer(slug, cached);
+          return;
+        }
       }
 
       const referrer = slug === HOME_SLUG ? null : getReferrer();
