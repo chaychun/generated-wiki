@@ -48,14 +48,14 @@ type GenerateBody = {
   referrer?: unknown;
 };
 
-function sanitizeSlug(raw: unknown): string {
+export function sanitizeSlug(raw: unknown): string {
   if (typeof raw !== "string") return "";
   const trimmed = raw.trim().slice(0, 100);
   if (trimmed === HOME_SLUG) return trimmed;
   return trimmed.toLowerCase().replace(/[^a-z0-9_-]/g, "");
 }
 
-function sanitizePersona(raw: unknown): Persona {
+export function sanitizePersona(raw: unknown): Persona {
   const def: Persona = { level: "general", chaos: "off" };
   if (!raw || typeof raw !== "object") return def;
   const o = raw as Record<string, unknown>;
@@ -84,7 +84,7 @@ function sanitizePersona(raw: unknown): Persona {
   return { level, chaos, freeform, chaosCustom };
 }
 
-function sanitizeReferrer(raw: unknown): Referrer | null {
+export function sanitizeReferrer(raw: unknown): Referrer | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
   if (typeof o.slug !== "string" || typeof o.body !== "string") return null;
