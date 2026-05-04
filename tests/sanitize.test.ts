@@ -18,9 +18,10 @@ describe("sanitizeSlug", () => {
     expect(sanitizeSlug(HOME_SLUG)).toBe(HOME_SLUG);
   });
 
-  test("lowercases, spaces→_, strips disallowed", () => {
-    expect(sanitizeSlug("Hello World!")).toBe("hello_world");
+  test("preserves case, spaces→_, strips disallowed", () => {
+    expect(sanitizeSlug("Hello World!")).toBe("Hello_World");
     expect(sanitizeSlug("foo-bar_baz")).toBe("foo-bar_baz");
+    expect(sanitizeSlug("Generated AI")).toBe("Generated_AI");
   });
 
   test("matches targetToSlug for same input", async () => {
@@ -60,18 +61,8 @@ describe("sanitizePersona", () => {
     expect(r).toEqual({
       level: "expert",
       chaos: "shakespeare",
-      freeform: undefined,
       chaosCustom: undefined,
     });
-  });
-
-  test("oversized freeform truncated to 500", () => {
-    const r = sanitizePersona({
-      level: "kid",
-      chaos: "off",
-      freeform: "x".repeat(700),
-    });
-    expect(r.freeform!.length).toBe(500);
   });
 
   test("oversized chaosCustom truncated to 200", () => {
@@ -83,14 +74,12 @@ describe("sanitizePersona", () => {
     expect(r.chaosCustom!.length).toBe(200);
   });
 
-  test("non-string freeform/chaosCustom → undefined", () => {
+  test("non-string chaosCustom → undefined", () => {
     const r = sanitizePersona({
       level: "general",
       chaos: "off",
-      freeform: 123,
       chaosCustom: {},
     });
-    expect(r.freeform).toBeUndefined();
     expect(r.chaosCustom).toBeUndefined();
   });
 });

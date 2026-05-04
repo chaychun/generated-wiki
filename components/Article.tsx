@@ -126,7 +126,6 @@ export function Article({ slug }: { slug: string }) {
   const head: ParsedHead | null = parsed ?? (synthesized ? synthesizeArticleHead() : null);
   const body = parsed ? text.slice(parsed.bodyStart) : head ? text : "";
   const headTitle = slugToTitle(slug);
-  const isHome = slug === HOME_SLUG;
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-8 font-serif">
@@ -153,7 +152,7 @@ export function Article({ slug }: { slug: string }) {
       )}
 
       {head?.fm.type === "article" && (
-        <ArticleView title={headTitle} isHome={isHome} body={body} streaming={!done} />
+        <ArticleView title={headTitle} body={body} streaming={!done} />
       )}
 
       {head?.fm.type === "rejected" && (
@@ -164,7 +163,10 @@ export function Article({ slug }: { slug: string }) {
 }
 
 function slugToTitle(slug: string): string {
-  return slug === HOME_SLUG ? "generated.wiki" : slugToDisplay(slug);
+  if (slug === HOME_SLUG) return "generated.wiki";
+  const display = slugToDisplay(slug);
+  if (/[A-Z]/.test(display)) return display;
+  return display.charAt(0).toUpperCase() + display.slice(1);
 }
 
 function synthesizeArticleHead(): ParsedHead {
@@ -182,11 +184,10 @@ function rememberAsReferrer(slug: string, full: string) {
 }
 
 function SkeletonTitle({ slug }: { slug: string }) {
-  const isHome = slug === HOME_SLUG;
   return (
     <>
       <h1
-        className={`border-b border-[var(--rule)] pb-2 font-serif text-4xl text-[var(--ink)] ${isHome ? "" : "capitalize"}`}
+        className="border-b border-[var(--rule)] pb-2 font-serif text-4xl text-[var(--ink)]"
       >
         {slugToTitle(slug)}
       </h1>
@@ -197,19 +198,17 @@ function SkeletonTitle({ slug }: { slug: string }) {
 
 function ArticleView({
   title,
-  isHome,
   body,
   streaming,
 }: {
   title: string;
-  isHome: boolean;
   body: string;
   streaming: boolean;
 }) {
   return (
     <article>
       <h1
-        className={`border-b border-[var(--rule)] pb-2 font-serif text-4xl text-[var(--ink)] ${isHome ? "" : "capitalize"}`}
+        className="border-b border-[var(--rule)] pb-2 font-serif text-4xl text-[var(--ink)]"
       >
         {title}
       </h1>
@@ -234,7 +233,7 @@ function RejectedView({
 }) {
   return (
     <article>
-      <h1 className="border-b border-[var(--rule)] pb-2 font-serif text-4xl capitalize text-[var(--ink)]">
+      <h1 className="border-b border-[var(--rule)] pb-2 font-serif text-4xl text-[var(--ink)]">
         {title}
       </h1>
       <p className="mt-1 text-xs italic text-zinc-500">
@@ -285,7 +284,7 @@ function RenderedBody({ body, streaming }: { body: string; streaming: boolean })
             seg.type === "text" ? (
               <span key={j}>{seg.text}</span>
             ) : (
-              <WikiLink key={j} target={seg.target} />
+              <WikiLink key={j} target={seg.target} display={seg.display} />
             ),
           )}
           {streaming && i === paragraphs.length - 1 && (

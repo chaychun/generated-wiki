@@ -1,10 +1,16 @@
 export type ReadingLevel = "kid" | "general" | "expert";
 
-export type ChaosMode = "off" | "shakespeare" | "caveman" | "linkedin" | "custom";
+export type ChaosMode =
+  | "off"
+  | "shakespeare"
+  | "caveman"
+  | "linkedin"
+  | "uwu"
+  | "brainrot"
+  | "custom";
 
 export type Persona = {
   level: ReadingLevel;
-  freeform?: string;
   chaos: ChaosMode;
   chaosCustom?: string;
 };

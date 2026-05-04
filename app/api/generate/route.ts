@@ -12,7 +12,6 @@ const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6";
 const OPENROUTER_MODEL =
   process.env.OPENROUTER_MODEL ?? "google/gemini-3-flash-preview";
 const MAX_REFERRER_CHARS = 2000;
-const MAX_FREEFORM_CHARS = 500;
 const MAX_TOKENS = 800;
 
 type Provider = "anthropic" | "openrouter";
@@ -70,6 +69,8 @@ export function sanitizePersona(raw: unknown): Persona {
     "shakespeare",
     "caveman",
     "linkedin",
+    "uwu",
+    "brainrot",
     "custom",
   ] as const;
   const chaos = (chaosCandidates as readonly string[]).includes(
@@ -77,13 +78,9 @@ export function sanitizePersona(raw: unknown): Persona {
   )
     ? (o.chaos as Persona["chaos"])
     : "off";
-  const freeform =
-    typeof o.freeform === "string"
-      ? o.freeform.slice(0, MAX_FREEFORM_CHARS)
-      : undefined;
   const chaosCustom =
     typeof o.chaosCustom === "string" ? o.chaosCustom.slice(0, 200) : undefined;
-  return { level, chaos, freeform, chaosCustom };
+  return { level, chaos, chaosCustom };
 }
 
 export function sanitizeReferrer(raw: unknown): Referrer | null {
