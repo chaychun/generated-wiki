@@ -7,8 +7,7 @@ export function normalizeSlug(raw: unknown): string {
   const trimmed = raw.trim();
   if (trimmed === HOME_SLUG) return HOME_SLUG;
   return trimmed
-    .toLowerCase()
     .replace(/\s+/g, "_")
-    .replace(/[^a-z0-9_-]/g, "")
+    .replace(/[^A-Za-z0-9_-]/g, "")
     .slice(0, MAX_SLUG_CHARS);
 }

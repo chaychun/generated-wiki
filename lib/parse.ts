@@ -41,11 +41,21 @@ export function parseFrontmatter(text: string): ParsedHead | null {
       type: "rejected",
       reason: typeof obj.reason === "string" ? obj.reason : undefined,
       suggestions: Array.isArray(obj.suggestions)
-        ? (obj.suggestions as unknown[]).filter((s): s is string => typeof s === "string")
+        ? (obj.suggestions as unknown[])
+            .filter((s): s is string => typeof s === "string")
+            .map(cleanSuggestion)
+            .filter((s) => s.length > 0)
         : undefined,
     },
     bodyStart,
   };
+}
+
+function cleanSuggestion(s: string): string {
+  let out = s.trim().replace(/^\[\[/, "").replace(/\]\]$/, "").trim();
+  const pipeIdx = out.indexOf("|");
+  if (pipeIdx !== -1) out = out.slice(0, pipeIdx).trim();
+  return out;
 }
 
 function findFrontmatterStart(text: string): number {
@@ -60,7 +70,9 @@ export function isErrorEnvelope(parsed: ParsedHead | null): boolean {
   return !!parsed && parsed.fm.type === "rejected" && parsed.fm.reason === "error";
 }
 
-export type Segment = { type: "text"; text: string } | { type: "link"; target: string };
+export type Segment =
+  | { type: "text"; text: string }
+  | { type: "link"; target: string; display?: string };
 
 export function tokenizeBody(body: string): Segment[] {
   const out: Segment[] = [];
@@ -71,7 +83,19 @@ export function tokenizeBody(body: string): Segment[] {
     if (m.index > last) {
       out.push({ type: "text", text: body.slice(last, m.index) });
     }
-    out.push({ type: "link", target: m[1].trim() });
+    const inner = m[1];
+    const pipeIdx = inner.indexOf("|");
+    if (pipeIdx === -1) {
+      out.push({ type: "link", target: inner.trim() });
+    } else {
+      const target = inner.slice(0, pipeIdx).trim();
+      const display = inner.slice(pipeIdx + 1).trim();
+      out.push({
+        type: "link",
+        target,
+        display: display.length > 0 ? display : undefined,
+      });
+    }
     last = re.lastIndex;
   }
   if (last < body.length) {
@@ -85,5 +109,9 @@ export function targetToSlug(target: string): string {
 }
 
 export function slugToDisplay(slug: string): string {
-  return decodeURIComponent(slug).replace(/_/g, " ");
+  try {
+    return decodeURIComponent(slug).replace(/_/g, " ");
+  } catch {
+    return slug.replace(/_/g, " ");
+  }
 }

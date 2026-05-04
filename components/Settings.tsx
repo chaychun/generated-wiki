@@ -10,6 +10,8 @@ const CHAOS_OPTIONS: { value: ChaosMode; label: string }[] = [
   { value: "shakespeare", label: "Shakespeare" },
   { value: "caveman", label: "Caveman" },
   { value: "linkedin", label: "LinkedIn influencer" },
+  { value: "uwu", label: "uwu" },
+  { value: "brainrot", label: "Brainrot (gen-Z / alpha)" },
   { value: "custom", label: "Custom…" },
 ];
 
@@ -53,14 +55,19 @@ export function Settings() {
     setOpen(false);
   }
 
+  const chaosOn = draft.chaos !== "off";
+  const chaosActive = isChaosActive(persona);
+
   return (
     <div className="relative mb-4 flex items-center justify-between border-b border-[var(--rule-soft)] pb-2 text-sm text-[var(--ink)]">
       <p className="text-zinc-700">
-        Reading as <span className="font-semibold">{personaLabel(persona)}</span>
-        {persona.chaos !== "off" && (
+        {chaosActive ? (
           <>
-            {" "}
-            · chaos: <span className="font-semibold">{renderChaosLabel(persona)}</span>
+            Chaos: <span className="font-semibold">{renderChaosLabel(persona)}</span>
+          </>
+        ) : (
+          <>
+            Reading as <span className="font-semibold">{personaLabel(persona)}</span>
           </>
         )}
       </p>
@@ -77,8 +84,9 @@ export function Settings() {
             Reading level
           </label>
           <select
-            className="mt-1 w-full rounded border border-[var(--rule)] bg-white p-1"
+            className="mt-1 w-full rounded border border-[var(--rule)] bg-white p-1 disabled:cursor-not-allowed disabled:opacity-50"
             value={draft.level}
+            disabled={chaosOn}
             onChange={(e) => setDraft({ ...draft, level: e.target.value as ReadingLevel })}
           >
             {LEVEL_OPTIONS.map((o) => (
@@ -87,18 +95,11 @@ export function Settings() {
               </option>
             ))}
           </select>
-
-          <label className="mt-3 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
-            Freeform context (optional)
-          </label>
-          <textarea
-            className="mt-1 w-full rounded border border-[var(--rule)] bg-white p-1 text-sm"
-            rows={2}
-            maxLength={500}
-            placeholder='e.g., "I already know Rust, explain in those terms"'
-            value={draft.freeform ?? ""}
-            onChange={(e) => setDraft({ ...draft, freeform: e.target.value })}
-          />
+          {chaosOn && (
+            <p className="mt-1 text-xs text-zinc-500">
+              Ignored while chaos is on.
+            </p>
+          )}
 
           <label className="mt-3 block text-xs font-semibold uppercase tracking-wide text-zinc-600">
             Chaos mode
@@ -148,6 +149,12 @@ export function Settings() {
 
 function renderChaosLabel(persona: Persona): string {
   if (persona.chaos !== "custom") return persona.chaos;
-  const c = persona.chaosCustom ?? "";
+  const c = (persona.chaosCustom ?? "").trim();
   return `custom (${c.slice(0, 24)}${c.length > 24 ? "…" : ""})`;
+}
+
+function isChaosActive(p: Persona): boolean {
+  if (p.chaos === "off") return false;
+  if (p.chaos === "custom") return (p.chaosCustom ?? "").trim().length > 0;
+  return true;
 }

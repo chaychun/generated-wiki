@@ -19,9 +19,15 @@ export function savePersona(p: Persona): void {
 }
 
 export function personaCacheKey(p: Persona): string {
-  const chaos =
-    p.chaos === "custom" ? `custom:${(p.chaosCustom ?? "").trim().slice(0, 200)}` : p.chaos;
-  return `${p.level}|${(p.freeform ?? "").trim()}|${chaos}`;
+  if (p.chaos === "custom") {
+    const custom = (p.chaosCustom ?? "").trim().slice(0, 200);
+    if (custom) return `chaos:custom:${custom}`;
+    return `level:${p.level}`;
+  }
+  if (p.chaos === "off") {
+    return `level:${p.level}`;
+  }
+  return `chaos:${p.chaos}`;
 }
 
 export function personaLabel(p: Persona): string {

@@ -33,6 +33,16 @@ describe("parseFrontmatter", () => {
     });
   });
 
+  test("strips [[...]] and pipes from suggestions", () => {
+    const text = `---\ntype: rejected\nreason: x\nsuggestions:\n  - "[[Niels Bohr]]"\n  - "[[octopus|octopuses]]"\n  - plain\n---\n`;
+    const r = parseFrontmatter(text);
+    expect(r!.fm).toEqual({
+      type: "rejected",
+      reason: "x",
+      suggestions: ["Niels Bohr", "octopus", "plain"],
+    });
+  });
+
   test("missing closing ---", () => {
     const text = `---\ntype: article\n`;
     expect(parseFrontmatter(text)).toBeNull();
@@ -88,18 +98,24 @@ describe("tokenizeBody", () => {
 });
 
 describe("targetToSlug / slugToDisplay round-trip", () => {
-  test("simple words", () => {
+  test("preserves case", () => {
     const slug = targetToSlug("Hello World");
-    expect(slug).toBe("hello_world");
-    expect(slugToDisplay(slug)).toBe("hello world");
+    expect(slug).toBe("Hello_World");
+    expect(slugToDisplay(slug)).toBe("Hello World");
+  });
+
+  test("preserves acronym casing", () => {
+    const slug = targetToSlug("Generated AI");
+    expect(slug).toBe("Generated_AI");
+    expect(slugToDisplay(slug)).toBe("Generated AI");
   });
 
   test("strips punctuation", () => {
-    expect(targetToSlug("Foo, Bar!")).toBe("foo_bar");
+    expect(targetToSlug("Foo, Bar!")).toBe("Foo_Bar");
   });
 
   test("preserves hyphens and digits", () => {
-    expect(targetToSlug("UTF-8 Encoding 2")).toBe("utf-8_encoding_2");
+    expect(targetToSlug("UTF-8 Encoding 2")).toBe("UTF-8_Encoding_2");
   });
 
   test("collapses whitespace", () => {
@@ -113,5 +129,33 @@ describe("targetToSlug / slugToDisplay round-trip", () => {
 
   test("slugToDisplay decodes percent-encoding", () => {
     expect(slugToDisplay("caf%C3%A9_bar")).toBe("café bar");
+  });
+});
+
+describe("tokenizeBody piped links", () => {
+  test("[[target|display]]", () => {
+    expect(tokenizeBody("a [[Generated AI|AI-generated]] b")).toEqual([
+      { type: "text", text: "a " },
+      { type: "link", target: "Generated AI", display: "AI-generated" },
+      { type: "text", text: " b" },
+    ]);
+  });
+
+  test("trims whitespace around pipe", () => {
+    expect(tokenizeBody("[[ Niels Bohr | Bohr's ]]")).toEqual([
+      { type: "link", target: "Niels Bohr", display: "Bohr's" },
+    ]);
+  });
+
+  test("empty display falls back to target", () => {
+    expect(tokenizeBody("[[Niels Bohr|]]")).toEqual([
+      { type: "link", target: "Niels Bohr" },
+    ]);
+  });
+
+  test("plain link has no display", () => {
+    expect(tokenizeBody("[[Niels Bohr]]")).toEqual([
+      { type: "link", target: "Niels Bohr" },
+    ]);
   });
 });
