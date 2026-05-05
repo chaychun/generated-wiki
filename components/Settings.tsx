@@ -25,7 +25,7 @@ export function Settings() {
   const [persona, setPersona] = useState<Persona>(DEFAULT_PERSONA);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Persona>(DEFAULT_PERSONA);
-  const popoverRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const p = loadPersona();
@@ -36,8 +36,8 @@ export function Settings() {
   useEffect(() => {
     if (!open) return;
     function onClickAway(e: MouseEvent) {
-      if (!popoverRef.current) return;
-      if (!popoverRef.current.contains(e.target as Node)) setOpen(false);
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener("mousedown", onClickAway);
     return () => document.removeEventListener("mousedown", onClickAway);
@@ -59,7 +59,10 @@ export function Settings() {
   const chaosActive = isChaosActive(persona);
 
   return (
-    <div className="relative mb-4 flex items-center justify-between border-b border-[var(--rule-soft)] pb-2 text-sm text-[var(--ink)]">
+    <div
+      ref={containerRef}
+      className="relative mt-12 flex items-center justify-between border-t border-[var(--rule-soft)] pt-2 text-sm text-[var(--ink)]"
+    >
       <p className="text-zinc-700">
         {chaosActive ? (
           <>
@@ -77,8 +80,7 @@ export function Settings() {
 
       {open && (
         <div
-          ref={popoverRef}
-          className="absolute right-0 top-8 z-20 w-80 max-w-[calc(100vw-2rem)] rounded border border-[var(--rule)] bg-[var(--paper)] p-4 shadow-lg"
+          className="absolute right-0 bottom-8 z-20 w-80 max-w-[calc(100vw-2rem)] rounded border border-[var(--rule)] bg-[var(--paper)] p-4 shadow-lg"
         >
           <label className="block text-xs font-semibold uppercase tracking-wide text-zinc-600">
             Reading level

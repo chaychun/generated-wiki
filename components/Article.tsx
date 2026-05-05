@@ -129,12 +129,24 @@ export function Article({ slug }: { slug: string }) {
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-8 font-serif">
-      <header className="mb-2">
-        <Link href="/" className="wiki-link text-sm">
+      <header className="mb-8 flex items-center justify-between text-sm">
+        <Link href="/" className="wiki-link">
           generated.wiki
         </Link>
+        <nav className="flex gap-4">
+          <Link href="/faq" className="wiki-link">
+            FAQ
+          </Link>
+          <a
+            href="https://github.com/chaychun/generated-wiki"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="wiki-link"
+          >
+            GitHub
+          </a>
+        </nav>
       </header>
-      <Settings />
 
       {error && (
         <p className="mt-4 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">
@@ -158,6 +170,8 @@ export function Article({ slug }: { slug: string }) {
       {head?.fm.type === "rejected" && (
         <RejectedView title={headTitle} fm={head.fm} body={body} streaming={!done} />
       )}
+
+      <Settings />
     </main>
   );
 }
